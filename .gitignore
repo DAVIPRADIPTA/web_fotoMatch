@@ -1,0 +1,39 @@
+# =========================================
+# SANGAT RAHASIA - JANGAN SAMPAI BOCOR!
+# =========================================
+.env
+firebase_credentials.json
+gdrive_credentials.json
+
+# =========================================
+# Virtual Environment & Dependensi
+# =========================================
+venv/
+env/
+.venv/
+
+# =========================================
+# Python Cache (Otomatis dibuat oleh sistem)
+# =========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# =========================================
+# File Database Lokal (Jika ada)
+# =========================================
+*.db
+*.sqlite3
+
+# =========================================
+# File Bawaan Sistem Operasi (Mac/Windows)
+# =========================================
+.DS_Store
+Thumbs.db
+
+# =========================================
+# Pengaturan Code Editor
+# =========================================
+.vscode/
+.idea/

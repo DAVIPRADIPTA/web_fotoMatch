@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <!-- Header -->
+    <div class="flex items-center space-x-4 mb-8">
+        <a href="/fotografer/events" class="w-10 h-10 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-sky-600 transition">
+            <i class="fas fa-arrow-left"></i>
+        </a>
+        <div>
+            <h2 class="text-2xl font-extrabold text-slate-900">Setor Link Google Drive</h2>
+            <p class="text-gray-500 text-sm">Target Event: <strong class="text-sky-600">{{ event.title }}</strong></p>
+        </div>
+    </div>
+
+    <!-- Form Container -->
+    <form action="/fotografer/events/{{ event.id }}/upload" method="POST" class="space-y-6">
+        
+        <!-- Section 1: Link Drive -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200">
+            <label class="block text-sm font-bold text-gray-700 mb-2">
+                <i class="fab fa-google-drive text-sky-500 mr-1"></i> Link Folder Google Drive
+            </label>
+            <input type="url" name="drive_folder_link" placeholder="https://drive.google.com/drive/folders/..." required 
+                   class="w-full p-4 bg-gray-50 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 outline-none transition text-sm">
+            <p class="text-xs text-gray-500 mt-2">
+                *Pastikan hak akses folder sudah diset ke <strong>"Anyone with the link can view"</strong> (Siapa saja yang memiliki link dapat melihat).
+            </p>
+        </div>
+
+        <!-- Section 2: Harga & Jasa -->
+        <div class="bg-white p-6 rounded-3xl shadow-sm border border-gray-200 space-y-5">
+            <div>
+                <label class="block text-sm font-bold text-gray-700 mb-2">Harga Per Foto (Format Digital)</label>
+                <div class="relative">
+                    <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <span class="text-gray-500 font-bold">Rp</span>
+                    </div>
+                    <input type="number" name="price_digital" value="15000" min="0" required 
+                           class="w-full pl-12 p-3 bg-gray-50 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 outline-none transition">
+                </div>
+            </div>
+
+            <hr class="border-gray-100">
+
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="block font-bold text-gray-700">Aktifkan Jasa Cetak & Bingkai?</span>
+                    <span class="text-xs text-gray-500 block mt-0.5">Pembeli bisa memesan foto fisik jika kamu mengaktifkan fitur ini.</span>
+                </div>
+                <!-- Toggle UI / Checkbox -->
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="allow_physical_print" value="yes" class="sr-only peer">
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-600"></div>
+                </label>
+            </div>
+        </div>
+
+        <button type="submit" class="w-full bg-slate-900 text-white font-bold py-4 rounded-xl hover:bg-black transition shadow-lg flex items-center justify-center space-x-2">
+            <i class="fas fa-magic"></i>
+            <span>Simpan & Ekstrak Wajah</span>
+        </button>
+    </form>
+</div>
+{% endblock %}

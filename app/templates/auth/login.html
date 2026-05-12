@@ -1,0 +1,80 @@
+{% extends "base_empty.html" %}
+
+{% block content %}
+<div class="flex items-center justify-center min-h-screen p-4">
+    <div class="bg-white p-8 rounded-3xl shadow-xl w-full max-w-md">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-extrabold text-slate-900">FotoMatch</h1>
+            <p class="text-gray-500 text-sm">Masuk ke Dashboard Fotografer</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="mb-4 p-3 rounded-lg text-sm 
+                {% if category == 'danger' %} bg-red-100 text-red-700 border-red-200 
+                {% elif category == 'success' %} bg-green-100 text-green-700 border-green-200 
+                {% else %} bg-yellow-100 text-yellow-700 border-yellow-200 {% endif %} border">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form action="/login" method="POST" class="space-y-4" autocomplete="off">
+            <input type="email" name="email" placeholder="Email" required class="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 outline-none">
+            <input type="password" name="password" placeholder="Password" required class="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 outline-none">
+            <button type="submit" class="w-full bg-slate-900 text-white font-bold py-3 rounded-xl hover:bg-black transition">Masuk</button>
+        </form>
+
+        <div class="relative my-6 text-center">
+            <span class="bg-white px-4 text-gray-400 text-xs uppercase tracking-widest relative z-10">Atau</span>
+            <hr class="absolute top-1/2 w-full border-gray-100">
+        </div>
+
+        <button type="button" id="google-login-btn" class="w-full bg-white border border-gray-200 text-gray-700 font-bold py-3 rounded-xl flex items-center justify-center hover:bg-gray-50 transition">
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5 mr-3" alt="Google">
+            Masuk dengan Google
+        </button>
+
+        <p class="mt-8 text-center text-sm text-gray-500">
+            Belum punya akun? <a href="/register" class="text-sky-600 font-bold hover:underline">Daftar Sekarang</a>
+        </p>
+    </div>
+</div>
+
+<script>
+    // Inisialisasi Firebase menggunakan config dari backend (via config.py)
+    const firebaseConfig = {{ firebase_config | tojson | safe }};
+    
+    // Karena kita load script firebase di base_empty.html, kita bisa langsung pakai di sini
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const provider = new firebase.auth.GoogleAuthProvider();
+
+    document.getElementById('google-login-btn').addEventListener('click', () => {
+        // Proses memanggil popup Google
+        auth.signInWithPopup(provider)
+            .then((result) => result.user.getIdToken())
+            .then((idToken) => {
+                // Kirim ID token ke Flask untuk diverifikasi
+                return fetch('/auth/firebase-verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken: idToken })
+                });
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.redirect) {
+                    window.location.href = data.redirect; // Sukses, pindah ke dashboard
+                } else {
+                    alert("Login gagal: " + data.error);
+                }
+            })
+            .catch((error) => {
+                console.error("Error Auth:", error);
+            });
+    });
+</script>
+{% endblock %}
