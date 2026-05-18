@@ -14,6 +14,7 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
     jwt.init_app(app)
 
+    # Init Login Manager (Sisi Web)
     login_manager.init_app(app)
     login_manager.login_view = 'web_auth.login'
 
@@ -23,22 +24,27 @@ def create_app(config_class=Config):
         return User.query.get(int(user_id))
 
     # Inisialisasi Firebase Admin SDK
-    # Pastikan kamu punya file JSON dari Firebase Console nantinya
     firebase_key_path = os.path.join(os.path.dirname(__file__), '..', 'firebase_credentials.json')
     if os.path.exists(firebase_key_path) and not firebase_admin._apps:
         cred = credentials.Certificate(firebase_key_path)
         firebase_admin.initialize_app(cred)
 
-    # Nanti kita daftarkan Blueprint di sini
+    # Pendaftaran Model
     from app import models
 
-    from app.api.auth import auth_bp
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    # =====================================
+    # PENDAFTARAN BLUEPRINT
+    # =====================================
+    
+    # 1. API Mobile
+    from app.api.auth import api_auth_bp
+    app.register_blueprint(api_auth_bp, url_prefix='/api/v1/auth')
 
+    # 2. Web Fotografer
     from app.web.auth import web_auth_bp
-    from app.web.views import web_bp
-
     app.register_blueprint(web_auth_bp)
+    
+    from app.web.views import web_bp
     app.register_blueprint(web_bp)
 
     return app

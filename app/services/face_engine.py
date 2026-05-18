@@ -62,5 +62,38 @@ class FaceEngine:
         except Exception as e:
             print(f"Error pada Face Engine: {e}")
             return []
+    
+    def get_face_from_file_stream(self, file_stream):
+        """
+        Membaca file gambar langsung dari request API Mobile (Flutter)
+        dan mengekstrak tepat 1 wajah untuk profil pelari.
+        """
+        try:
+            # 1. Baca data byte dari file yang diupload pelari
+            file_bytes = np.frombuffer(file_stream.read(), np.uint8)
+            img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+
+            if img is None:
+                return {"status": "error", "message": "File gambar tidak valid atau rusak."}
+
+            # 2. face_recognition butuh format RGB
+            rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+            # 3. Cari letak wajah pelari
+            face_locations = face_recognition.face_locations(rgb_img)
+
+            if len(face_locations) == 0:
+                return {"status": "error", "message": "Wajah tidak terdeteksi. Coba di tempat yang lebih terang."}
+            elif len(face_locations) > 1:
+                return {"status": "error", "message": "Terdeteksi lebih dari satu wajah! Pastikan hanya wajah Anda di foto."}
+
+            # 4. Ekstrak vektor wajah (128 dimensi)
+            face_encodings = face_recognition.face_encodings(rgb_img, face_locations)
+            
+            # Kita ubah array numpy menjadi list biasa agar siap dijadikan JSON
+            return {"status": "success", "vector": face_encodings[0].tolist()}
+
+        except Exception as e:
+            return {"status": "error", "message": f"Terjadi kesalahan sistem AI: {str(e)}"}
 
 face_engine = FaceEngine()
