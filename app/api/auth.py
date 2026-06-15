@@ -51,12 +51,12 @@ def login_manual():
     email = request.form.get('email')
     password = request.form.get('password')
 
-    # ==========================================
-    # RADAR DEBUG: BONGKAR APA YANG FLASK BACA
-    # ==========================================
-    print("\n========= DEBUG LOGIN MULAI =========")
-    print(f"1. Email dari Postman    : '{email}'")
-    print(f"2. Password dari Postman : '{password}'")
+    # # ==========================================
+    # # RADAR DEBUG: BONGKAR APA YANG FLASK BACA
+    # # ==========================================
+    # print("\n========= DEBUG LOGIN MULAI =========")
+    # print(f"1. Email dari Postman    : '{email}'")
+    # print(f"2. Password dari Postman : '{password}'")
 
     user = User.query.filter_by(email=email).first()
     
