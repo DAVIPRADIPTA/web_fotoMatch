@@ -3,14 +3,22 @@ from datetime import datetime
 from flask_login import UserMixin
 import json
 
-class User(db.Model,UserMixin):
+class User(db.Model, UserMixin):
     __tablename__ = 'users'
+    
     id = db.Column(db.Integer, primary_key=True)
-    firebase_uid = db.Column(db.String(128), unique=True, nullable=True) # Tambahan untuk Firebase
+    # Kolom ini diubah namanya untuk menyimpan ID unik dari Supabase (atau provider lain nantinya)
+    provider_uid = db.Column(db.String(128), unique=True, nullable=True) 
+    
     name = db.Column(db.String(255), nullable=False)
     email = db.Column(db.String(255), unique=True, nullable=False)
-    password = db.Column(db.String(255), nullable=True) # Diubah menjadi nullable=True
-    auth_provider = db.Column(db.String(50), default='manual') # 'manual' atau 'google'
+    
+    # Password nullable=True karena jika login pakai OTP Supabase, kita tidak butuh password
+    password = db.Column(db.String(255), nullable=True) 
+    
+    # 'manual' untuk form password biasa, 'supabase' untuk OTP/Google
+    auth_provider = db.Column(db.String(50), default='manual') 
+    
     role = db.Column(db.Enum('admin', 'photographer', 'buyer'), default='buyer')
     face_embedding_user = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)

@@ -1,153 +1,99 @@
 import json
+import jwt  # Pastikan menginstal PyJWT (pip install PyJWT)
 from flask import Blueprint, request, jsonify, current_app
-from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from firebase_admin import auth as firebase_auth
+import urllib
 from app.extensions import db
 from app.models import User
 from app.services.face_engine import face_engine
 from app.services.matcher import start_face_matching
 
-
 api_auth_bp = Blueprint('api_auth', __name__)
 
 # ==========================================
-# 1. REGISTER MANUAL
+# 1. LOGIN SUPABASE (OTP EMAIL & GOOGLE)
 # ==========================================
-@api_auth_bp.route('/register', methods=['POST'])
-def register_buyer():
-    name = request.form.get('name')
-    email = request.form.get('email')
-    password = request.form.get('password')
-
-    if not name or not email or not password:
-        return jsonify({"status": "error", "message": "Semua kolom wajib diisi."}), 400
-
-    if User.query.filter_by(email=email).first():
-        return jsonify({"status": "error", "message": "Email sudah terdaftar."}), 400
+@api_auth_bp.route('/login-supabase', methods=['POST'])
+def login_supabase():
+    supabase_token = request.form.get('access_token')
+    role = request.form.get('role', 'buyer')
+    
+    if not supabase_token:
+        return jsonify({"status": "error", "message": "Autentikasi gagal. Access Token Supabase tidak ditemukan."}), 400
 
     try:
-        new_user = User(
-            name=name,
-            email=email,
-            password=generate_password_hash(password),
-            role='buyer',
-            auth_provider='manual'
-        )
-        db.session.add(new_user)
-        db.session.commit()
-
-        return jsonify({"status": "success", "message": "Registrasi berhasil! Silakan login."}), 201
-
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-# ==========================================
-# 2. LOGIN MANUAL
-# ==========================================
-@api_auth_bp.route('/login', methods=['POST'])
-def login_manual():
-    email = request.form.get('email')
-    password = request.form.get('password')
-
-    # # ==========================================
-    # # RADAR DEBUG: BONGKAR APA YANG FLASK BACA
-    # # ==========================================
-    # print("\n========= DEBUG LOGIN MULAI =========")
-    # print(f"1. Email dari Postman    : '{email}'")
-    # print(f"2. Password dari Postman : '{password}'")
-
-    user = User.query.filter_by(email=email).first()
-    
-    if user:
-        print(f"3. Akun ditemukan di DB? : YA ({user.email})")
-        print(f"4. Hash Password di DB   : '{user.password}'")
+        # ==========================================
+        # 1. TANYA LANGSUNG KE SERVER SUPABASE
+        # ==========================================
+        # GANTI INI: Masukkan URL Project dan Anon Key milikmu
+        SUPABASE_URL = "https://pwqzhkbtevlgecbnddil.supabase.co" 
+        SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3cXpoa2J0ZXZsZ2VjYm5kZGlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2MDM2MzksImV4cCI6MjA5NzE3OTYzOX0.U3I5flv39XcELupehptCdWC_lav4Qz1TUlWPSKYAZqE"
         
-        # Kita tes langsung kecocokannya
-        if password is not None:
-            is_match = check_password_hash(user.password, password)
-            print(f"5. Apakah Hash Cocok?    : {is_match}")
-        else:
-            print("5. Apakah Hash Cocok?    : GAGAL (Password dari Postman None)")
-    else:
-        print("3. Akun ditemukan di DB? : TIDAK ADA (Email tidak terdaftar/salah ketik)")
-    
-    print("========= DEBUG LOGIN SELESAI ========\n")
-    # ==========================================
+        req = urllib.request.Request(f"{SUPABASE_URL}/auth/v1/user")
+        
+        # Dua Header Wajib Supabase!
+        req.add_header("Authorization", f"Bearer {supabase_token}")
+        req.add_header("apikey", SUPABASE_ANON_KEY) # <--- INI BARIS PENYELAMATNYA
+        
+        try:
+            response = urllib.request.urlopen(req)
+            user_data = json.loads(response.read())
+        except Exception as e:
+            print(f"[!] Auth Error: Server Supabase menolak token: {str(e)}")
+            return jsonify({"status": "error", "message": "Sesi tidak valid atau telah kadaluwarsa. Silakan login ulang."}), 401
 
-    if not user or not user.password or not check_password_hash(user.password, password):
-        return jsonify({"status": "error", "message": "Email atau password salah."}), 401
+        # ==========================================
+        # 2. EKSTRAK DATA RESMI DARI SUPABASE
+        # ==========================================
+        supabase_uid = user_data.get('id')
+        email = user_data.get('email')
+        
+        # Ekstrak nama (jika ada di metadata)
+        user_metadata = user_data.get('user_metadata', {})
+        name = user_metadata.get('full_name', email.split('@')[0])
 
-    # Buat JWT Token
-    from flask_jwt_extended import create_access_token
-    access_token = create_access_token(identity=str(user.id))
-    has_face_data = True if user.face_embedding_user else False
+        print(f"\n[*] AI-Auth-System: Token Divalidasi oleh API Supabase untuk Email: {email} | Role: {role}")
 
-    return jsonify({
-        "status": "success",
-        "message": "Login berhasil.",
-        "data": {
-            "token": access_token,
-            "has_face_data": has_face_data
-        }
-    }), 200
-
-# ==========================================
-# 3. LOGIN GOOGLE (HYBRID)
-# ==========================================
-@api_auth_bp.route('/login-google', methods=['POST'])
-def login_google():
-    """
-    Flutter mengirimkan id_token yang didapat dari Firebase Auth (Google Sign-In).
-    Flask memverifikasinya, jika valid, keluarkan JWT buatan Flask.
-    """
-    id_token = request.form.get('id_token')
-    if not id_token:
-        return jsonify({"status": "error", "message": "Token Google tidak ditemukan."}), 400
-
-    try:
-        # Verifikasi token menggunakan Firebase Admin SDK
-        decoded_token = firebase_auth.verify_id_token(id_token)
-        uid = decoded_token.get('uid')
-        email = decoded_token.get('email')
-        name = decoded_token.get('name', 'FotoMatch')
-
-        # Cari user, jika belum ada, otomatis daftarkan (Register Otomatis)
+        # ==========================================
+        # 3. SINKRONISASI KE MYSQL LOKAL FLASK
+        # ==========================================
         user = User.query.filter_by(email=email).first()
+        
         if not user:
+            print(f"[*] Akun baru terdeteksi. Mendaftarkan {email} secara otomatis ke MySQL...")
             user = User(
-                email=email,
                 name=name,
-                firebase_uid=uid,
-                auth_provider='google',
-                role='buyer'
-                # Password dikosongkan karena nullable=True di models.py
+                email=email,
+                provider_uid=supabase_uid,
+                auth_provider='supabase',
+                role=role
             )
             db.session.add(user)
             db.session.commit()
+            print("[*] Sinkronisasi akun baru berhasil disimpan.")
 
-        # Generate JWT Flask
-        access_token = create_access_token(identity=str(user.id))
+        # 4. Terbitkan JWT Token Lokal milik Flask untuk mengunci sesi di Flutter GetX
+        flask_access_token = create_access_token(identity=str(user.id))
         has_face_data = True if user.face_embedding_user else False
 
         return jsonify({
             "status": "success",
-            "message": "Login Google berhasil.",
+            "message": "Autentikasi berhasil disinkronkan dengan server lokal.",
             "data": {
-                "token": access_token,
-                "has_face_data": has_face_data
+                "token": flask_access_token,
+                "has_face_data": has_face_data,
+                "role": user.role
             }
         }), 200
 
     except Exception as e:
-        return jsonify({"status": "error", "message": f"Token Google tidak valid: {str(e)}"}), 401
+        # ... sisa kode tidak berubah ...
+        db.session.rollback()
+        print(f"[!] Server Error pada sistem autentikasi: {str(e)}")
+        return jsonify({"status": "error", "message": f"Gagal memproses sinkronisasi: {str(e)}"}), 500
 
 # ==========================================
-# 4. SETUP WAJAH (Dilindungi JWT)
-# ==========================================
-# ==========================================
-# 4. SETUP WAJAH MULTI-TEMPLATE (Depan & Samping)
+# 2. SETUP WAJAH (Dilindungi JWT Lokal)
 # ==========================================
 @api_auth_bp.route('/setup-face', methods=['POST'])
 @jwt_required()
@@ -158,7 +104,7 @@ def setup_face():
     if not user:
         return jsonify({"status": "error", "message": "User tidak ditemukan."}), 404
 
-    # 1. Kembali cek 1 key saja: 'selfie_image'
+    # 1. Cek lampiran file selfie
     if 'selfie_image' not in request.files:
         return jsonify({"status": "error", "message": "Foto selfie wajib dilampirkan!"}), 400
         
@@ -166,7 +112,7 @@ def setup_face():
     if file.filename == '':
         return jsonify({"status": "error", "message": "File foto tidak boleh kosong."}), 400
 
-    # 2. Proses ekstraksi 1 wajah saja
+    # 2. Proses ekstraksi wajah dengan AI
     ai_result = face_engine.get_face_from_file_stream(file)
     if ai_result['status'] == 'error':
         return jsonify({"status": "error", "message": ai_result['message']}), 400
@@ -178,7 +124,7 @@ def setup_face():
         user.face_embedding_user = vector_json
         db.session.commit()
 
-        # 4. Picu pencarian AI asinkronus dengan 1 vektor
+        # 4. Picu pencarian AI asinkronus di background
         start_face_matching(current_app._get_current_object(), user.id, vector_json)
 
         return jsonify({
@@ -190,18 +136,21 @@ def setup_face():
         db.session.rollback()
         return jsonify({"status": "error", "message": f"Gagal menyimpan data: {str(e)}"}), 500
 
+
 # ==========================================
-# 5. LOGOUT (Sisi Client)
+# 3. LOGOUT (Sisi Client)
 # ==========================================
 @api_auth_bp.route('/logout', methods=['POST'])
 @jwt_required()
 def logout():
     """
-    Karena JWT adalah token stateless, server tidak perlu menyimpan daftar token 
-    yang expired (kecuali butuh keamanan tingkat bank dengan blacklist redis).
-    Cukup beritahu Flutter untuk menghapus token dari Shared Preferences/GetStorage.
+    Sistem JWT bersifat stateless. Server cukup meminta Flutter menghapus token di GetStorage/SharedPreferences.
     """
     return jsonify({
         "status": "success",
         "message": "Logout berhasil. Tolong hapus token di sisi aplikasi mobile."
     }), 200
+
+@api_auth_bp.route('', methods=['GET'])
+def home():
+    return 'haloo'

@@ -1,8 +1,6 @@
 from flask import Flask
 from config import Config
 from app.extensions import db, migrate, jwt, login_manager
-import firebase_admin
-from firebase_admin import credentials
 import os
 
 def create_app(config_class=Config):
@@ -23,11 +21,7 @@ def create_app(config_class=Config):
         from app.models import User
         return User.query.get(int(user_id))
 
-    # Inisialisasi Firebase Admin SDK
-    firebase_key_path = os.path.join(os.path.dirname(__file__), '..', 'firebase_credentials.json')
-    if os.path.exists(firebase_key_path) and not firebase_admin._apps:
-        cred = credentials.Certificate(firebase_key_path)
-        firebase_admin.initialize_app(cred)
+    # [HAPUS] Blok inisialisasi Firebase Admin SDK dihapus seluruhnya dari sini
 
     # Pendaftaran Model
     from app import models
@@ -36,11 +30,11 @@ def create_app(config_class=Config):
     # PENDAFTARAN BLUEPRINT
     # =====================================
     
-    # 1. API Mobile
+    # 1. API Mobile (Untuk Pelanggan & Fotografer di HP)
     from app.api.auth import api_auth_bp
     app.register_blueprint(api_auth_bp, url_prefix='/api/v1/auth')
 
-    # 2. Web Fotografer
+    # 2. Web Fotografer / Admin
     from app.web.auth import web_auth_bp
     app.register_blueprint(web_auth_bp)
     

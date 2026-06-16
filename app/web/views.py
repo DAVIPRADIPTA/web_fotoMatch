@@ -107,3 +107,4 @@ def upload_drive(event_id):
             db.session.rollback()
 
     return render_template('fotografer/create_album.html', event=event)
+
