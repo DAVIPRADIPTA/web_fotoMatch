@@ -4,27 +4,30 @@ import numpy as np
 from app.extensions import db
 from app.models import FaceEmbedding, FaceMatch
 
+MATCH_THRESHOLD = 0.5 
+
+# =====================================================================
+# SKENARIO 1: USER BARU DAFTAR -> COCOKKAN DENGAN SEMUA FOTO LAMA
+# =====================================================================
 def run_background_matching(app, user_id, buyer_vector_json):
     with app.app_context():
         print(f"[*] AI Matcher: Memulai pencarian masal untuk User ID {user_id}...")
         
-        # 1. Dekode string JSON langsung menjadi 1 array numpy (128 dimensi)
+        # Dekode string JSON menjadi array numpy 1D
         buyer_vector = np.array(json.loads(buyer_vector_json))
         
+        # Ambil semua wajah yang pernah ada di database
         all_event_faces = FaceEmbedding.query.all()
-        
-        THRESHOLD = 0.5 
         match_count = 0
         
         for face in all_event_faces:
-            db_vector = np.array(face.get_embedding_array())
+            db_vector = np.array(json.loads(face.embedding_vector))
             
-            # 2. Langsung hitung jarak Euclidean-nya
+            # Hitung jarak Euclidean (tingkat kemiripan)
             distance = np.linalg.norm(buyer_vector - db_vector)
             
-            # 3. Jika cocok, langsung catat
-            if distance < THRESHOLD:
-                # Cek agar tidak terjadi duplikasi jika sistem me-run ulang
+            if distance < MATCH_THRESHOLD:
+                # Cek duplikasi
                 existing_match = FaceMatch.query.filter_by(user_id=user_id, photo_id=face.photo_id).first()
                 
                 if not existing_match:
@@ -32,7 +35,7 @@ def run_background_matching(app, user_id, buyer_vector_json):
                         user_id=user_id,
                         photo_id=face.photo_id,
                         match_score=float(distance),
-                        is_confirmed=True 
+                        is_confirmed=True # Langsung confirm agar muncul di aplikasi
                     )
                     db.session.add(new_match)
                     match_count += 1

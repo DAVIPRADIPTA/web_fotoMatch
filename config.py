@@ -15,3 +15,8 @@ class Config:
         'authDomain': os.getenv('FIREBASE_AUTH_DOMAIN'),
         'projectId': os.getenv('FIREBASE_PROJECT_ID'),
     }
+    SUPABASE_URL = os.getenv('SUPABASE_URL')
+    SUPABASE_ANON_KEY = os.getenv('SUPABASE_ANON_KEY')
+    KOMERCE_SHIPPING_KEY = os.getenv('KOMERCE_SHIPPING_KEY')
+    BITESHIP_API_KEY = os.getenv('BITESHIP_API_KEY')
+    MIDTRANS_SERVER_KEY = os.getenv('MIDTRANS_SERVER_KEY')
